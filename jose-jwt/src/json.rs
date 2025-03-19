@@ -1,28 +1,26 @@
-// SPDX-FileCopyrightText: 2022 Profian Inc. <opensource@profian.com>
-// SPDX-License-Identifier: Apache-2.0 OR MIT
+//#![cfg(feature = "json")]
 
-#![cfg(feature = "json")]
-
+use alloc::borrow::ToOwned;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-use core::convert::Infallible;
 use core::fmt::Debug;
+use core::marker::PhantomData;
 use core::ops::Deref;
 use core::str::FromStr;
+use jose_b64::serde::Bytes;
 
 use base64ct::{Base64UrlUnpadded, Encoding};
+use jose_b64::base64ct;
 use serde::de::{DeserializeOwned, Error as _};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use super::Bytes;
-use crate::stream::Error;
+use jose_b64::stream::Error;
 
 /// A wrapper for nested, base64-encoded JSON
 ///
-/// [`Json`] handles the case where a type (`T`) is serialized to JSON and then
-/// embedded into another JSON object as a base64-string. Note that [`Json`]
-/// internally stores both the originally decoded bytes **and** the
-/// doubly-decoded value. While this uses additional memory, it ensures that
+/// [`Json`] handles the case where a type (`T`) is serialized to JSON.
+/// Note that [`Json`] internally stores both the base64 encoded bytes **and**
+/// the doubly-decoded value. While this uses additional memory, it ensures that
 /// the original serialization is not lost. This is important in cryptographic
 /// contexts where the original serialization may be included in a
 /// cryptographic measurement.
@@ -32,13 +30,15 @@ use crate::stream::Error;
 /// serialization, only the pre-serialized bytes are used; the type (`T`) is
 /// **not** reserialized.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
-#[serde(bound(serialize = "Bytes<B, E>: Serialize"))]
+#[serde(bound(serialize = "T: Serialize"))]
 #[serde(transparent)]
 pub struct Json<T, B = Box<[u8]>, E = Base64UrlUnpadded> {
-    buf: Bytes<B, E>,
-
-    #[serde(skip_serializing)]
     val: T,
+
+    #[serde(skip)]
+    buf: Bytes<B, E>,
+    #[serde(skip)]
+    cfg: PhantomData<E>,
 }
 
 impl<T, B, E> Deref for Json<T, B, E> {
@@ -49,67 +49,73 @@ impl<T, B, E> Deref for Json<T, B, E> {
     }
 }
 
-impl<T, B: AsRef<[u8]>, E> AsRef<[u8]> for Json<T, B, E> {
-    fn as_ref(&self) -> &[u8] {
-        self.buf.as_ref()
-    }
-}
-
-impl<T, B, E> TryFrom<Bytes<B, E>> for Json<T, B, E>
+impl<T, B, E> TryFrom<alloc::string::String> for Json<T, B, E>
 where
-    Bytes<B, E>: AsRef<[u8]>,
     T: DeserializeOwned,
+    B: From<alloc::string::String>,
+    E: Encoding,
 {
-    type Error = serde_json::Error;
+    type Error = Error<serde_json::Error>;
 
-    fn try_from(buf: Bytes<B, E>) -> Result<Self, Self::Error> {
+    fn try_from(s: alloc::string::String) -> Result<Self, Self::Error> {
+        let decoded = E::decode_vec(s.as_str())?;
         Ok(Self {
-            val: serde_json::from_slice(buf.as_ref())?,
-            buf,
+            val: serde_json::from_slice(&decoded).map_err(Error::Inner)?,
+            buf: Bytes::from_str(&s)?,
+            cfg: PhantomData,
         })
     }
 }
 
 impl<T, B, E> Json<T, B, E>
 where
-    Bytes<B, E>: From<Vec<u8>>,
+    B: From<alloc::string::String>,
     T: Serialize,
+    E: Encoding,
 {
-    /// Creates a new instance by serializing the input to JSON.
+    /// Creates a new instance by serializing the input to JSON
+    /// and encoding that as base64.
     ///
-    /// The value `T` is serialized and **both** `T` and its serialized bytes
+    /// The value `T` and its serialized and base64 encoded bytes
     /// are stored in the object.
     pub fn new(value: T) -> Result<Self, serde_json::Error> {
+        let serialized = serde_json::to_vec(&value)?;
         Ok(Self {
-            buf: serde_json::to_vec(&value)?.into(),
+            buf: E::encode_string(serialized.as_slice()).into(),
             val: value,
+            cfg: PhantomData,
         })
     }
 }
 
 impl<T, B, E: Encoding> FromStr for Json<T, B, E>
 where
-    Bytes<B, E>: FromStr<Err = Error<Infallible>>,
-    Bytes<B, E>: AsRef<[u8]>,
     T: DeserializeOwned,
+    B: From<alloc::string::String>,
+    E: Encoding,
 {
     type Err = Error<serde_json::Error>;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let buf = Bytes::from_str(s).map_err(|e| e.cast())?;
-        buf.try_into().map_err(Error::Inner)
+        let decoded = E::decode_vec(s)?;
+        Ok(Self {
+            val: serde_json::from_slice(&decoded).map_err(Error::Inner)?,
+            buf: s.to_owned().into(),
+            cfg: PhantomData,
+        })
     }
 }
 
 impl<'de, T, B, E> Deserialize<'de> for Json<T, B, E>
 where
-    Bytes<B, E>: Deserialize<'de>,
-    Bytes<B, E>: AsRef<[u8]>,
-    T: DeserializeOwned,
+    T: Serialize + DeserializeOwned,
+    B: From<alloc::string::String>,
     E: Encoding,
 {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        Ok(match Self::try_from(Bytes::deserialize(deserializer)?) {
+        let value = T::deserialize(deserializer)?;
+
+        Ok(match Self::new(value) {
             Err(e) => return Err(D::Error::custom(e)),
             Ok(x) => x,
         })
