@@ -1,10 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+use jose_b64::serde::{Json, Secret};
+
 /// JWE headers
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Header {
     /// BASE64URL(UTF8(JWE Protected Header))
-    pub protected: Protected,
+    ///
+    /// JSON object that contains the Header Parameters that are integrity
+    /// protected by the authenticated encryption operation.  These
+    /// parameters apply to all recipients of the JWE.  For the JWE
+    /// Compact Serialization, this comprises the entire JOSE Header.  For
+    /// the JWE JSON Serialization, this is one component of the JOSE
+    /// Header.
+    pub protected: Json<Protected>,
     /// unprotected headers
     #[serde(flatten)]
     pub unprotected: Unprotected,
@@ -52,9 +61,9 @@ pub struct Protected {
     /// "JSON Web Signature and Encryption Algorithms" registry established
     /// by [JWA]; the initial contents of this registry are the values
     /// defined in Section 5.1 of [JWA].
-    enc: alloc::string::String,
+    enc: jose_jwa::Encrypting,
 
-    /// (Compression Algorithm) Header Parameter
+    /// Compression Algorithm Header Parameter
     ///
     /// The "zip" (compression algorithm) applied to the plaintext before
     /// encryption, if any.  The "zip" value defined by this specification
@@ -72,6 +81,97 @@ pub struct Protected {
     /// This Header Parameter MUST be understood and processed by
     /// implementations.
     zip: alloc::string::String,
+
+    /// JWK Set URL Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "jku" Header Parameter defined in Section 4.1.2 of [JWS], except
+    /// that the JWK Set resource contains the public key to which the JWE
+    /// was encrypted; this can be used to determine the private key needed
+    /// to decrypt the JWE.
+    jku: (),
+
+    /// JSON Web Key Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "jwk" Header Parameter defined in Section 4.1.3 of [JWS], except
+    /// that the key is the public key to which the JWE was encrypted; this
+    /// can be used to determine the private key needed to decrypt the JWE.
+    jwk: (),
+
+    /// Key ID Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "kid" Header Parameter defined in Section 4.1.4 of [JWS], except
+    /// that the key hint references the public key to which the JWE was
+    /// encrypted; this can be used to determine the private key needed to
+    /// decrypt the JWE.  This parameter allows originators to explicitly
+    /// signal a change of key to JWE recipients.
+    kid: (),
+
+    /// X.509 URL Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "x5u" Header Parameter defined in Section 4.1.5 of [JWS], except
+    /// that the X.509 public key certificate or certificate chain [RFC5280]
+    /// contains the public key to which the JWE was encrypted; this can be
+    /// used to determine the private key needed to decrypt the JWE.
+    x5u: (),
+
+    /// X.509 Certificate Chain Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "x5c" Header Parameter defined in Section 4.1.6 of [JWS], except
+    /// that the X.509 public key certificate or certificate chain [RFC5280]
+    /// contains the public key to which the JWE was encrypted; this can be
+    /// used to determine the private key needed to decrypt the JWE.
+    ///
+    /// See Appendix B of [JWS] for an example "x5c" value.
+    x5c: (),
+
+    /// X.509 Certificate SHA-1 Thumbprint Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "x5t" Header Parameter defined in Section 4.1.7 of [JWS], except
+    /// that the certificate referenced by the thumbprint contains the public
+    /// key to which the JWE was encrypted; this can be used to determine the
+    /// private key needed to decrypt the JWE.  Note that certificate
+    /// thumbprints are also sometimes known as certificate fingerprints.
+    x5t: (),
+
+    /// "x5t#S256" X.509 Certificate SHA-256 Thumbprint Header Parameter
+
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "x5t#S256" Header Parameter defined in Section 4.1.8 of [JWS],
+    /// except that the certificate referenced by the thumbprint contains the
+    /// public key to which the JWE was encrypted; this can be used to
+    /// determine the private key needed to decrypt the JWE.  Note that
+    /// certificate thumbprints are also sometimes known as certificate
+    /// fingerprints.
+    #[serde(rename = "x5t#S256")]
+    x5t_s256: (),
+
+    /// Type Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "typ" Header Parameter defined in Section 4.1.9 of [JWS], except
+    /// that the type is that of this complete JWE.
+    typ: (),
+
+    /// Content Type Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "cty" Header Parameter defined in Section 4.1.10 of [JWS], except
+    /// that the type is that of the secured content (the plaintext).
+    cty: (),
+
+    /// Critical Header Parameter
+    ///
+    /// This parameter has the same meaning, syntax, and processing rules as
+    /// the "crit" Header Parameter defined in Section 4.1.11 of [JWS],
+    /// except that Header Parameters for a JWE are being referred to, rather
+    /// than Header Parameters for a JWS.
+    crit: (),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
