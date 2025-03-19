@@ -187,6 +187,14 @@ dependencies = [
 [[package]]
 name = "jose-jwe"
 version = "0.0.0"
+dependencies = [
+ "jose-b64",
+ "jose-jwa",
+ "jose-jwk",
+ "rand_core",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "jose-jwk"

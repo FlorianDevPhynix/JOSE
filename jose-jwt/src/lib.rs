@@ -28,9 +28,38 @@ use serde_json::Value;
 
 use crate::json::Json;
 
-/// Implemnted for Claim structures to verify its contents.
+/// Implemented for Claim structures to verify its contents.
 pub trait Verify {
     fn verify(&self) -> Result<(), signature::Error>;
+}
+
+pub enum JWT<C> {
+    /// JWT with a JWS header
+    JWS(SignedJWT<C>),
+
+    /// JWT with a JWE header
+    JWE(EncryptedJWT),
+}
+
+/// JWT represented as a JWS
+pub struct SignedJWT<C> {
+    pub header: jose_jws::Protected,
+    /// claims
+    pub payload: C,
+    pub signature: jose_jws::Signature,
+}
+
+/// JWT represented as a JWE
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EncryptedJWT {
+    pub header: jose_jwe::Header,
+    pub encrypted_key: jose_jwe::EncryptedKey,
+    #[serde(rename = "iv")]
+    pub initialization_vector: jose_jwe::InitializationVector,
+    pub ciphertext: jose_jwe::Ciphertext,
+    #[serde(rename = "tag")]
+    pub authentication_tag: jose_jwe::AuthenticationTag,
+    pub aad: jose_jwe::AAD,
 }
 
 pub type JwtHeader = jose_jws::Unprotected;
@@ -59,6 +88,34 @@ impl<C: Serialize> Jwt<C> {
         let mut enc_buf = [0u8; BUF_SIZE];
 
         Ok(format!("{}.{}.{}", header, payload, self.signature))
+    }
+
+    pub fn decode(encoded: &str) -> Result<Self, serde_json::Error> {
+        use jose_b64::base64ct::Base64UrlUnpadded;
+
+        let mut parts = encoded.split('.');
+        let header = Base64UrlUnpadded::decode_vec(
+            parts
+                .next()
+                .ok_or(serde_json::Error::custom("Missing header"))?,
+        )?;
+        let header: JwtHeader = serde_json::from_slice(&header)?;
+
+        let claims = Base64UrlUnpadded::decode_vec(
+            parts
+                .next()
+                .ok_or(serde_json::Error::custom("Missing claims"))?,
+        )?;
+        let signature = parts
+            .next()
+            .ok_or(serde_json::Error::custom("Missing signature"))?
+            .to_string();
+
+        Ok(Self {
+            header: Json::from(serde_json::from_slice(&header)?),
+            claims: Json::from(serde_json::from_slice(&claims)?),
+            signature,
+        })
     }
 }
 
@@ -98,6 +155,7 @@ struct JwtHeaderExt {
     pub x5u: Option<String>,
 }
 
+#[inline]
 pub(crate) fn btreemap_empty(map: &BTreeMap<String, Value>) -> bool {
     map.is_empty()
 }
