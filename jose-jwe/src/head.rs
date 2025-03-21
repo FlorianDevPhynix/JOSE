@@ -1,6 +1,10 @@
-use serde::{Deserialize, Serialize};
+use alloc::{boxed::Box, string::String, vec::Vec};
 
-use jose_b64::serde::{Json, Secret};
+use jose_b64::base64ct::Base64;
+use jose_b64::serde::{Bytes, Json, Secret};
+use jose_jwa::{CekEncryption, Encrypting};
+use jose_jwk::{Jwk, Thumbprint};
+use serde::{Deserialize, Serialize};
 
 /// JWE headers
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,7 +47,9 @@ pub struct Protected {
     /// "JSON Web Signature and Encryption Algorithms" registry established
     /// by [JWA]; the initial contents of this registry are the values
     /// defined in Section 4.1 of [JWA].
-    alg: alloc::string::String,
+    ///
+    /// RFC 7516 Section 4.1.1
+    alg: CekEncryption,
 
     /// The "enc" (encryption algorithm) Header Parameter identifies the
     /// content encryption algorithm used to perform authenticated encryption
@@ -61,7 +67,9 @@ pub struct Protected {
     /// "JSON Web Signature and Encryption Algorithms" registry established
     /// by [JWA]; the initial contents of this registry are the values
     /// defined in Section 5.1 of [JWA].
-    enc: jose_jwa::Encrypting,
+    ///
+    /// RFC 7516 Section 4.1.2
+    enc: Encrypting,
 
     /// Compression Algorithm Header Parameter
     ///
@@ -80,7 +88,9 @@ pub struct Protected {
     /// JWE Protected Header.  Use of this Header Parameter is OPTIONAL.
     /// This Header Parameter MUST be understood and processed by
     /// implementations.
-    zip: alloc::string::String,
+    ///
+    /// RFC 7516 Section 4.1.3
+    zip: Option<String>,
 
     /// JWK Set URL Header Parameter
     ///
@@ -89,6 +99,8 @@ pub struct Protected {
     /// that the JWK Set resource contains the public key to which the JWE
     /// was encrypted; this can be used to determine the private key needed
     /// to decrypt the JWE.
+    ///
+    /// RFC 7516 Section 4.1.4
     jku: (),
 
     /// JSON Web Key Header Parameter
@@ -97,7 +109,10 @@ pub struct Protected {
     /// the "jwk" Header Parameter defined in Section 4.1.3 of [JWS], except
     /// that the key is the public key to which the JWE was encrypted; this
     /// can be used to determine the private key needed to decrypt the JWE.
-    jwk: (),
+    ///
+    /// RFC 7516 Section 4.1.5
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    jwk: Option<Jwk>,
 
     /// Key ID Header Parameter
     ///
@@ -107,6 +122,8 @@ pub struct Protected {
     /// encrypted; this can be used to determine the private key needed to
     /// decrypt the JWE.  This parameter allows originators to explicitly
     /// signal a change of key to JWE recipients.
+    ///
+    /// RFC 7516 Section 4.1.6
     kid: (),
 
     /// X.509 URL Header Parameter
@@ -116,6 +133,8 @@ pub struct Protected {
     /// that the X.509 public key certificate or certificate chain [RFC5280]
     /// contains the public key to which the JWE was encrypted; this can be
     /// used to determine the private key needed to decrypt the JWE.
+    ///
+    /// RFC 7516 Section 4.1.7
     x5u: (),
 
     /// X.509 Certificate Chain Header Parameter
@@ -127,43 +146,34 @@ pub struct Protected {
     /// used to determine the private key needed to decrypt the JWE.
     ///
     /// See Appendix B of [JWS] for an example "x5c" value.
-    x5c: (),
-
-    /// X.509 Certificate SHA-1 Thumbprint Header Parameter
     ///
-    /// This parameter has the same meaning, syntax, and processing rules as
-    /// the "x5t" Header Parameter defined in Section 4.1.7 of [JWS], except
-    /// that the certificate referenced by the thumbprint contains the public
-    /// key to which the JWE was encrypted; this can be used to determine the
-    /// private key needed to decrypt the JWE.  Note that certificate
-    /// thumbprints are also sometimes known as certificate fingerprints.
-    x5t: (),
+    /// RFC 7516 Section 4.1.8
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub x5c: Option<Vec<Bytes<Box<[u8]>, Base64>>>, // base64, not base64url
 
-    /// "x5t#S256" X.509 Certificate SHA-256 Thumbprint Header Parameter
-
-    /// This parameter has the same meaning, syntax, and processing rules as
-    /// the "x5t#S256" Header Parameter defined in Section 4.1.8 of [JWS],
-    /// except that the certificate referenced by the thumbprint contains the
-    /// public key to which the JWE was encrypted; this can be used to
-    /// determine the private key needed to decrypt the JWE.  Note that
-    /// certificate thumbprints are also sometimes known as certificate
-    /// fingerprints.
-    #[serde(rename = "x5t#S256")]
-    x5t_s256: (),
+    /// RFC 7515 Section 4.1.9-10
+    #[serde(flatten)]
+    pub x5t: Thumbprint,
 
     /// Type Header Parameter
     ///
     /// This parameter has the same meaning, syntax, and processing rules as
     /// the "typ" Header Parameter defined in Section 4.1.9 of [JWS], except
     /// that the type is that of this complete JWE.
-    typ: (),
+    ///
+    /// RFC 7516 Section 4.1.11
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub typ: Option<String>,
 
     /// Content Type Header Parameter
     ///
     /// This parameter has the same meaning, syntax, and processing rules as
     /// the "cty" Header Parameter defined in Section 4.1.10 of [JWS], except
     /// that the type is that of the secured content (the plaintext).
-    cty: (),
+    ///
+    /// RFC 7516 Section 4.1.12
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub cty: Option<String>,
 
     /// Critical Header Parameter
     ///
@@ -171,7 +181,9 @@ pub struct Protected {
     /// the "crit" Header Parameter defined in Section 4.1.11 of [JWS],
     /// except that Header Parameters for a JWE are being referred to, rather
     /// than Header Parameters for a JWS.
-    crit: (),
+    ///
+    /// RFC 7516 Section 4.1.13
+    pub crit: (),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

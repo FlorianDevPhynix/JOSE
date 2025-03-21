@@ -106,6 +106,89 @@ impl fmt::Display for Signing {
     }
 }
 
+/// Algorithms used for encrypting the CEK, as defined in [RFC7518] section 4.1.
+///
+/// Algorithms used to encrypt the CEK, producing the JWE
+/// Encrypted Key, or to use key agreement to agree upon the CEK.
+///
+/// [RFC7518]: https://www.rfc-editor.org/rfc/rfc7518
+#[non_exhaustive]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum CekEncryption {
+    /// RSAES-PKCS1-v1_5 (Recommended-)
+    Rsa1_5,
+
+    /// RSAES OAEP using default parameters (Recommended+)
+    #[serde(rename = "RSA-OAEP")]
+    RsaOaep,
+
+    /// RSAES OAEP using SHA-256 and MGF1 with SHA-256 (Optional)
+    #[serde(rename = "RSA-OAEP-256")]
+    RsaOaep256,
+
+    /// AES Key Wrap with default initial value using 128-bit key (Recommended)
+    A128Kw,
+
+    /// AES Key Wrap with default initial value using 192-bit key (Optional)
+    A192Kw,
+
+    /// AES Key Wrap with default initial value using 256-bit key (Recommended)
+    A256Kw,
+
+    /// Direct use of a shared symmetric key as the CEK (Recommended)
+    #[serde(rename = "dir")]
+    Dir,
+
+    /// Elliptic Curve Diffie-Hellman Ephemeral Static key agreement
+    /// using Concat KDF (Recommended+)
+    /// More Header Params: "epk", "apu", "apv"
+    #[serde(rename = "ECDH-ES")]
+    EcdhEs,
+
+    /// ECDH-ES using Concat KDF and CEK wrapped with "A128KW" (Recommended)
+    /// More Header Params: "epk", "apu", "apv"
+    #[serde(rename = "ECDH-ES+A128KW")]
+    EcdhEsA128KW,
+
+    /// ECDH-ES using Concat KDF and CEK wrapped with "A192KW" (Optional)
+    /// More Header Params: "epk", "apu", "apv"
+    #[serde(rename = "ECDH-ES+A192KW")]
+    EcdhEsA192KW,
+
+    /// ECDH-ES using Concat KDF and CEK wrapped with "A256KW" (Recommended)
+    /// More Header Params: "epk", "apu", "apv"
+    #[serde(rename = "ECDH-ES+A256KW")]
+    EcdhEsA256KW,
+
+    /// Key wrapping with AES GCM using 128-bit key (Optional)
+    /// More Header Params: "iv", "tag"
+    A128Gcmkw,
+
+    /// Key wrapping with AES GCM using 192-bit key (Optional)
+    /// More Header Params: "iv", "tag"
+    A192Gcmkw,
+
+    /// Key wrapping with AES GCM using 256-bit key (Optional)
+    /// More Header Params: "iv", "tag"
+    A256Gcmkw,
+
+    /// PBES2 with HMAC SHA-256 and "A128KW" wrapping (Optional)
+    /// More Header Params: "p2s", "p2c"
+    #[serde(rename = "PBES2-HS256+A128KW")]
+    Pbes2Hs256A128Kw,
+
+    /// PBES2 with HMAC SHA-384 and "A192KW" wrapping (Optional)
+    /// More Header Params: "p2s", "p2c"
+    #[serde(rename = "PBES2-HS384+A192KW")]
+    Pbes2Hs384A192Kw,
+
+    /// PBES2 with HMAC SHA-512 and "A256KW" wrapping (Optional)
+    /// More Header Params: "p2s", "p2c"
+    #[serde(rename = "PBES2-HS512+A256KW")]
+    Pbes2Hs512A256Kw,
+}
+
 /// Algorithms used for encrypting, as defined in [RFC7518] section 5.1.
 ///
 /// [RFC7518]: https://www.rfc-editor.org/rfc/rfc7518
@@ -113,23 +196,28 @@ impl fmt::Display for Signing {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "UPPERCASE")]
 pub enum Encrypting {
-    /// AES_128_CBC_HMAC_SHA_256 authenticated encryption algorithm,
-    /// as defined in Section 5.2.3. Implementation: Required
+    /// AES_128_CBC_HMAC_SHA_256 using 128-bit CBC keys and HMAC SHA-256,
+    /// as defined in Section 5.2.3. (Required)
     #[serde(rename = "A128CBC-HS256")]
     A128CBCHS256,
-    /// AES_192_CBC_HMAC_SHA_384 authenticated encryption algorithm,
-    /// as defined in Section 5.2.4. Implementation: Optional
+
+    /// AES_192_CBC_HMAC_SHA_384 using 192-bit CBC keys and HMAC SHA-384,
+    /// as defined in Section 5.2.4. (Optional)
     #[serde(rename = "A192CBC-HS384")]
     A192CBCHS384,
-    /// AES_256_CBC_HMAC_SHA_512 authenticated encryption algorithm,
-    /// as defined in Section5.2.5. Implementation: Required
+
+    /// AES_256_CBC_HMAC_SHA_512 using 256-bit CBC keys and HMAC SHA-512,
+    /// as defined in Section5.2.5. (Required)
     #[serde(rename = "A256CBC-HS512")]
     A256CBCHS512,
-    /// AES GCM using 128-bit key. Implementation: Recommended
+
+    /// AES GCM using 128-bit key. (Recommended)
     A128GCM,
-    /// AES GCM using 192-bit key. Implementation: Optional
+
+    /// AES GCM using 192-bit key. (Optional)
     A192GCM,
-    /// AES GCM using 256-bit key. Implementation: Recommended
+
+    /// AES GCM using 256-bit key. (Recommended)
     A256GCM,
 }
 
