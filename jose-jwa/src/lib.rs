@@ -106,7 +106,7 @@ impl fmt::Display for Signing {
     }
 }
 
-/// Algorithms used for encrypting the CEK, as defined in [RFC7518] section 4.1.
+/// Algorithms used for encrypting the JWE CEK, as defined in [RFC7518] section 4.1.
 ///
 /// Algorithms used to encrypt the CEK, producing the JWE
 /// Encrypted Key, or to use key agreement to agree upon the CEK.
@@ -149,29 +149,29 @@ pub enum CekEncryption {
     /// ECDH-ES using Concat KDF and CEK wrapped with "A128KW" (Recommended)
     /// More Header Params: "epk", "apu", "apv"
     #[serde(rename = "ECDH-ES+A128KW")]
-    EcdhEsA128KW,
+    EcdhEsA128Kw,
 
     /// ECDH-ES using Concat KDF and CEK wrapped with "A192KW" (Optional)
     /// More Header Params: "epk", "apu", "apv"
     #[serde(rename = "ECDH-ES+A192KW")]
-    EcdhEsA192KW,
+    EcdhEsA192Kw,
 
     /// ECDH-ES using Concat KDF and CEK wrapped with "A256KW" (Recommended)
     /// More Header Params: "epk", "apu", "apv"
     #[serde(rename = "ECDH-ES+A256KW")]
-    EcdhEsA256KW,
+    EcdhEsA256Kw,
 
     /// Key wrapping with AES GCM using 128-bit key (Optional)
     /// More Header Params: "iv", "tag"
-    A128Gcmkw,
+    A128GcmKw,
 
     /// Key wrapping with AES GCM using 192-bit key (Optional)
     /// More Header Params: "iv", "tag"
-    A192Gcmkw,
+    A192GcmKw,
 
     /// Key wrapping with AES GCM using 256-bit key (Optional)
     /// More Header Params: "iv", "tag"
-    A256Gcmkw,
+    A256GcmKw,
 
     /// PBES2 with HMAC SHA-256 and "A128KW" wrapping (Optional)
     /// More Header Params: "p2s", "p2c"
@@ -187,6 +187,12 @@ pub enum CekEncryption {
     /// More Header Params: "p2s", "p2c"
     #[serde(rename = "PBES2-HS512+A256KW")]
     Pbes2Hs512A256Kw,
+}
+
+impl fmt::Display for CekEncryption {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.serialize(f)
+    }
 }
 
 /// Algorithms used for encrypting, as defined in [RFC7518] section 5.1.
@@ -253,6 +259,46 @@ mod tests {
 
         assert_eq!(
             serde_json::from_str::<Vec<Signing>>(&ser).expect("deserialization failed"),
+            input
+        );
+    }
+
+    #[test]
+    fn cek_encrypting_simple_roundtrip() {
+        use CekEncryption::*;
+
+        let input = vec![
+            Rsa1_5,
+            RsaOaep,
+            RsaOaep256,
+            A128Kw,
+            A192Kw,
+            A256Kw,
+            Dir,
+            EcdhEs,
+            EcdhEsA128Kw,
+            EcdhEsA192Kw,
+            EcdhEsA256Kw,
+            A128GcmKw,
+            A192GcmKw,
+            A256GcmKw,
+            Pbes2Hs256A128Kw,
+            Pbes2Hs384A192Kw,
+            Pbes2Hs512A256Kw,
+        ];
+        let ser = serde_json::to_string(&input).expect("serialization failed");
+
+        assert_eq!(
+            ser,
+            concat!(
+                r#"["RSA1_5","RSA-OAEP","RSA-OAEP-256","A128KW","A192KW","A256KW","dir","ECDH-ES","#,
+                r#""ECDH-ES+A128KW","ECDH-ES+A192KW","ECDH-ES+A256KW","A128GCMKW","A192GCMKW","#,
+                r#""A256GCMKW","PBES2-HS256+A128KW","PBES2-HS384+A192KW","PBES2-HS512+A256KW"]"#
+            )
+        );
+
+        assert_eq!(
+            serde_json::from_str::<Vec<CekEncryption>>(&ser).expect("deserialization failed"),
             input
         );
     }
