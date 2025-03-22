@@ -136,7 +136,7 @@ pub struct Encryption {
     /// Serialization by including the AAD value as an integrity-protected
     /// Header Parameter value, but at the cost of the value being double
     /// base64url encoded.)
-    pub aad: Option<Bytes>,
+    pub aad: Option<Secret>,
 
     /// BASE64URL(JWE Initialization Vector)
     ///
